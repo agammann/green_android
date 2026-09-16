@@ -1,0 +1,46 @@
+name: Validate proposed Green Android fixes
+on:
+  push:
+    branches:
+      - ci/validate-green-fixes
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Current settled state
+            revision: d7d9079b933b52a64d5fd248d93649c1140d9693
+          - name: Empty chart history
+            revision: 6f7d38baca3e8b292feb4bd2fee7aadae986c14d
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.revision }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify reviewed revision
+        env:
+          EXPECTED_REVISION: ${{ matrix.revision }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_REVISION"
+      - name: JVM regression suites
+        run: ./gradlew :data:jvmTest :domain:jvmTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.compiler.execution.strategy=in-process
+      - name: Build Android debug APK and run Android unit tests
+        run: ./gradlew useBlockstreamKeys :androidApp:assembleProductionGoogleDebug :androidApp:testProductionGoogleDebugUnitTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.compiler.execution.strategy=in-process
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-${{ matrix.revision }}
+          retention-days: 7
+          path: |
+            **/build/test-results/**/*.xml
+            **/build/reports/tests/**
+            androidApp/build/outputs/apk/productionGoogle/debug/*.apk

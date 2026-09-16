@@ -7,39 +7,29 @@ permissions:
   contents: read
 jobs:
   validate:
-    name: ${{ matrix.name }}
+    name: Wallet refresh fixes and Meld contract tests
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Current settled state
-            revision: d7d9079b933b52a64d5fd248d93649c1140d9693
-          - name: Empty chart history
-            revision: 6f7d38baca3e8b292feb4bd2fee7aadae986c14d
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.revision }}
+          ref: 85d057705a8dcedcf9823507e1c6bccee6ca5a9c
           persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
       - name: Verify reviewed revision
-        env:
-          EXPECTED_REVISION: ${{ matrix.revision }}
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_REVISION"
-      - name: JVM regression suites
-        run: ./gradlew :data:jvmTest :domain:jvmTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.compiler.execution.strategy=in-process
-      - name: Build Android debug APK and run Android unit tests
+        run: test "$(git rev-parse HEAD)" = "85d057705a8dcedcf9823507e1c6bccee6ca5a9c"
+      - name: Complete shared JVM suites
+        run: ./gradlew :data:jvmTest :domain:jvmTest :utils:jvmTest :network:jvmTest :jade:jvmTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.compiler.execution.strategy=in-process
+      - name: Repository unit tests and Android APK build
         if: ${{ !cancelled() }}
-        run: ./gradlew useBlockstreamKeys :androidApp:assembleProductionGoogleDebug :androidApp:testProductionGoogleDebugUnitTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.compiler.execution.strategy=in-process
+        run: ./gradlew useBlockstreamKeys test :androidApp:assembleProductionGoogleDebug --continue --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.compiler.execution.strategy=in-process
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: validation-${{ matrix.revision }}
+          name: wallet-refresh-validation-85d0577
           retention-days: 7
           path: |
             **/build/test-results/**/*.xml

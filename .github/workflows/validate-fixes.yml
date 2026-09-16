@@ -34,6 +34,7 @@ jobs:
       - name: JVM regression suites
         run: ./gradlew :data:jvmTest :domain:jvmTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.compiler.execution.strategy=in-process
       - name: Build Android debug APK and run Android unit tests
+        if: ${{ !cancelled() }}
         run: ./gradlew useBlockstreamKeys :androidApp:assembleProductionGoogleDebug :androidApp:testProductionGoogleDebugUnitTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.compiler.execution.strategy=in-process
       - uses: actions/upload-artifact@v4
         if: always()
